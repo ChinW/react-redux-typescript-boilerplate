@@ -8,9 +8,10 @@ var sourcePath = path.join(__dirname, './src');
 var outPath = path.join(__dirname, './build');
 
 // plugins
-var HtmlWebpackPlugin = require('html-webpack-plugin');
-var MiniCssExtractPlugin = require('mini-css-extract-plugin');
-var { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
 module.exports = {
   context: sourcePath,
@@ -24,7 +25,7 @@ module.exports = {
   },
   target: 'web',
   resolve: {
-    extensions: ['.js', '.ts', '.tsx'],
+    extensions: ['.js', '.jsx', '.ts', '.tsx'],
     // Fix webpack's default behavior to not load packages with jsnext:main module
     // (jsnext:main directs not usually distributable es6 format, but es6 sources)
     mainFields: ['module', 'browser', 'main'],
@@ -34,48 +35,73 @@ module.exports = {
   },
   module: {
     rules: [
-      // .ts, .tsx
       {
-        test: /\.tsx?$/,
+        test: /\.[j|t]sx?$/,
+        include: [
+          path.resolve(__dirname, 'src'),
+          path.resolve(__dirname, 'types'),
+          path.resolve(__dirname, '../shared')
+        ],
+        exclude: /node_modules/,
         use: [
-          !isProduction && {
+          {
             loader: 'babel-loader',
-            options: { plugins: ['react-hot-loader/babel'] }
+            options: {
+              cacheDirectory: true
+            }
           },
-          'ts-loader'
-        ].filter(Boolean)
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true
+            }
+          }
+        ]
       },
-      // css
       {
-        test: /\.css$/,
-        use: [
-          isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+        test: /\.module\.s(a|c)ss$/,
+        loader: [
+          'style-loader',
           {
             loader: 'css-loader',
-            query: {
-              sourceMap: !isProduction,
-              importLoaders: 1,
-              modules: {
-                localIdentName: isProduction ? '[hash:base64:5]' : '[local]__[hash:base64:5]'
-              }
+            options: {
+              modules: true,
             }
           },
           {
             loader: 'postcss-loader',
             options: {
               ident: 'postcss',
-              plugins: [
-                require('postcss-import')({ addDependencyTo: webpack }),
-                require('postcss-url')(),
-                require('postcss-preset-env')({
-                  /* use stage 2 features (defaults) */
-                  stage: 2
-                }),
-                require('postcss-reporter')(),
-                require('postcss-browser-reporter')({
-                  disabled: isProduction
-                })
-              ]
+              plugins: [require('tailwindcss'), require('autoprefixer')]
+            }
+          },
+          {
+            loader: 'sass-loader',
+            options: {
+              implementation: require('sass')
+            }
+          }
+        ]
+      },
+      {
+        test: /(\.css|\.scss|\.sass)$/,
+        exclude: /\.module.(s(a|c)ss)$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              ident: 'postcss',
+              plugins: [require('tailwindcss'), require('autoprefixer')]
+            }
+          },
+          {
+            loader: 'sass-loader',
+            options: {
+              implementation: require('sass')
             }
           }
         ]
@@ -116,6 +142,11 @@ module.exports = {
     new MiniCssExtractPlugin({
       filename: '[hash].css',
       disable: !isProduction
+    }),
+    new ForkTsCheckerWebpackPlugin({
+      typescript: {
+        configFile: path.resolve(__dirname, './tsconfig.json')
+      }
     }),
     new HtmlWebpackPlugin({
       template: 'assets/index.html',

@@ -5,6 +5,8 @@ import { createBrowserHistory } from 'history';
 import { configureStore } from 'app/store';
 import { Router } from 'react-router';
 import { App } from './app';
+import "normalize.css";
+import "./styles/global.scss"
 
 // prepare store
 const history = createBrowserHistory();
